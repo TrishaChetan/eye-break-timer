@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>20‑20‑20 · Eye Break Timer</title>
+<meta name="description" content="A pink 20-20-20 eye break timer for your laptop. Every 20 minutes, look 20 feet away for 20 seconds." />
+<meta name="theme-color" content="#ff4f9a" />
+
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icon.svg" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="scene">
+
+  <div class="petals" aria-hidden="true"></div>
+
+  <main class="card">
+
+    <header class="brand">
+      <span class="brand-mark">20‑20‑20</span>
+      <span class="brand-sub">eye break timer</span>
+    </header>
+
+    <div class="ring-wrap">
+      <svg class="ring" viewBox="0 0 240 240">
+        <circle class="ring-track" cx="120" cy="120" r="108"></circle>
+        <circle id="ringProgress" class="ring-progress" cx="120" cy="120" r="108"></circle>
+      </svg>
+
+      <div class="ring-center">
+        <div id="phaseLabel" class="phase-label">ready</div>
+        <div id="timeDisplay" class="time-display">20:00</div>
+        <div id="cycleCount" class="cycle-count">0 breaks today</div>
+      </div>
+    </div>
+
+    <p id="hint" class="hint">Press start. Every 20 minutes we'll tell you to look 20 feet away for 20 seconds — then work resumes on its own.</p>
+
+    <div class="controls">
+      <button id="startBtn" class="btn btn-primary">Start</button>
+      <button id="pauseBtn" class="btn btn-ghost" disabled>Pause</button>
+    </div>
+
+    <button id="stopDayBtn" class="link-btn">Stop for today</button>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  </main>
+
+  <footer class="footnote">Runs entirely in your browser. No account, no tracking, nothing leaves your laptop.</footer>
+
+</div>
+
+<audio id="alarmSound" preload="auto"></audio>
+
+<script src="app.js"></script>
+</body>
+</html>
