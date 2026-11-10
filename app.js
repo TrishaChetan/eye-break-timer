@@ -29,6 +29,9 @@ let phase = 'idle'; // 'idle' | 'work' | 'break'
 let remaining = WORK_SECONDS;
 let ticking = null;
 let paused = false;
+let deadline = 0; // wall-clock ms when the current phase ends
+
+const BASE_TITLE = document.title;
 
 function todayStr() {
   return new Date().toDateString();
@@ -93,6 +96,20 @@ function render() {
     els.ring.classList.remove('break-mode', 'pulse');
     updateRing(1, 1);
   }
+  updateTitle();
+}
+
+// Show the countdown in the browser tab so you can see it without switching tabs
+function updateTitle() {
+  if (phase === 'idle') {
+    document.title = BASE_TITLE;
+  } else if (paused) {
+    document.title = `⏸ ${formatTime(remaining)} · paused`;
+  } else if (phase === 'break') {
+    document.title = `👀 ${formatTime(remaining)} · look away!`;
+  } else {
+    document.title = `${formatTime(remaining)} · focus`;
+  }
 }
 
 function showToast(msg, duration = 4000) {
@@ -150,17 +167,26 @@ function playChime() {
 
 /* ---- timer control ---- */
 
+// Browsers throttle timers in background tabs, so instead of counting ticks
+// we compare against a wall-clock deadline. The countdown stays accurate even
+// if the tab was hidden for minutes.
+function setDeadline(seconds) {
+  deadline = Date.now() + seconds * 1000;
+}
+
+function tick() {
+  if (paused || phase === 'idle') return;
+  remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+  if (remaining <= 0) {
+    handlePhaseEnd();
+  } else {
+    render();
+  }
+}
+
 function startTick() {
   clearInterval(ticking);
-  ticking = setInterval(() => {
-    if (paused) return;
-    remaining -= 1;
-    if (remaining <= 0) {
-      handlePhaseEnd();
-    } else {
-      render();
-    }
-  }, 1000);
+  ticking = setInterval(tick, 250);
 }
 
 function handlePhaseEnd() {
@@ -170,6 +196,7 @@ function handlePhaseEnd() {
     showToast('Time to look 20 feet away for 20 seconds 🌸', 5000);
     phase = 'break';
     remaining = BREAK_SECONDS;
+    setDeadline(BREAK_SECONDS);
     render();
   } else if (phase === 'break') {
     playChime();
@@ -179,6 +206,7 @@ function handlePhaseEnd() {
     showToast('Resuming — next break in 20 minutes ✨', 3500);
     phase = 'work';
     remaining = WORK_SECONDS;
+    setDeadline(WORK_SECONDS);
     render();
   }
 }
@@ -203,6 +231,7 @@ function start() {
   phase = 'work';
   remaining = WORK_SECONDS;
   paused = false;
+  setDeadline(WORK_SECONDS);
   els.startBtn.disabled = true;
   els.pauseBtn.disabled = false;
   els.hint.textContent = "Running — we'll ping you every 20 minutes.";
@@ -212,6 +241,8 @@ function start() {
 
 function togglePause() {
   paused = !paused;
+  if (!paused) setDeadline(remaining); // resume exactly where we left off
+  render();
   els.pauseBtn.textContent = paused ? 'Resume' : 'Pause';
   showToast(paused ? 'Paused' : 'Resumed', 1500);
 }
@@ -239,6 +270,6 @@ els.stopDayBtn.addEventListener('click', () => {
 // keep the countdown accurate even if the tab is throttled in the background
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    render();
+    tick();
   }
 });
