@@ -2,8 +2,14 @@
    Work phase: 20:00 (1200s) -> alarm -> Break phase: 0:20 (20s) -> chime -> repeat
 */
 
-const WORK_SECONDS = 20 * 60;
-const BREAK_SECONDS = 20;
+// Defaults follow the 20-20-20 rule; both can be changed under "Timing"
+// and are remembered in localStorage.
+const DEFAULT_WORK_MIN = 20;
+const DEFAULT_BREAK_SEC = 20;
+const LIMITS = { workMin: [1, 90], breakSec: [10, 300] };
+
+let WORK_SECONDS = DEFAULT_WORK_MIN * 60;
+let BREAK_SECONDS = DEFAULT_BREAK_SEC;
 
 const els = {
   ring: document.getElementById('ringProgress'),
@@ -15,6 +21,9 @@ const els = {
   pauseBtn: document.getElementById('pauseBtn'),
   stopDayBtn: document.getElementById('stopDayBtn'),
   toast: document.getElementById('toast'),
+  workInput: document.getElementById('workMinutes'),
+  breakInput: document.getElementById('breakSeconds'),
+  resetTiming: document.getElementById('resetTiming'),
 };
 
 const CIRCUMFERENCE = 2 * Math.PI * 108;
@@ -23,7 +32,56 @@ const STORAGE_KEYS = {
   stoppedDate: 'eyebreak_stopped_date',
   cycleCount: 'eyebreak_cycle_count',
   cycleDate: 'eyebreak_cycle_date',
+  workMin: 'eyebreak_work_minutes',
+  breakSec: 'eyebreak_break_seconds',
 };
+
+function clamp(v, [lo, hi], fallback) {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback;
+}
+
+function safeGet(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+
+function safeSet(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) { /* private mode etc. */ }
+}
+
+function workMinutes() { return Math.round(WORK_SECONDS / 60); }
+
+function plural(n, word) { return `${n} ${word}${n === 1 ? '' : 's'}`; }
+
+function loadTiming() {
+  WORK_SECONDS = clamp(safeGet(STORAGE_KEYS.workMin) ?? DEFAULT_WORK_MIN, LIMITS.workMin, DEFAULT_WORK_MIN) * 60;
+  BREAK_SECONDS = clamp(safeGet(STORAGE_KEYS.breakSec) ?? DEFAULT_BREAK_SEC, LIMITS.breakSec, DEFAULT_BREAK_SEC);
+  if (els.workInput) els.workInput.value = workMinutes();
+  if (els.breakInput) els.breakInput.value = BREAK_SECONDS;
+}
+
+function idleHint() {
+  return `Press start. Every ${plural(workMinutes(), 'minute')} we'll tell you to look 20 feet away for ` +
+    `${plural(BREAK_SECONDS, 'second')} — then work resumes on its own. Space starts and pauses.`;
+}
+
+function applyTiming() {
+  const w = clamp(els.workInput.value, LIMITS.workMin, workMinutes());
+  const b = clamp(els.breakInput.value, LIMITS.breakSec, BREAK_SECONDS);
+  els.workInput.value = w;
+  els.breakInput.value = b;
+  safeSet(STORAGE_KEYS.workMin, String(w));
+  safeSet(STORAGE_KEYS.breakSec, String(b));
+  WORK_SECONDS = w * 60;
+  BREAK_SECONDS = b;
+  if (phase === 'idle') {
+    remaining = WORK_SECONDS;
+    if (!isStoppedForToday()) els.hint.textContent = idleHint();
+    render();
+  } else {
+    showToast('New timing starts with the next phase', 2500);
+  }
+}
 
 let phase = 'idle'; // 'idle' | 'work' | 'break'
 let remaining = WORK_SECONDS;
@@ -192,8 +250,8 @@ function startTick() {
 function handlePhaseEnd() {
   if (phase === 'work') {
     playAlarm();
-    notify('Look 20 feet away 👀', 'Rest your eyes for 20 seconds — resuming automatically.');
-    showToast('Time to look 20 feet away for 20 seconds 🌸', 5000);
+    notify('Look 20 feet away 👀', `Rest your eyes for ${plural(BREAK_SECONDS, 'second')} — resuming automatically.`);
+    showToast(`Time to look 20 feet away for ${plural(BREAK_SECONDS, 'second')} 🌸`, 5000);
     phase = 'break';
     remaining = BREAK_SECONDS;
     setDeadline(BREAK_SECONDS);
@@ -202,8 +260,8 @@ function handlePhaseEnd() {
     playChime();
     cycles += 1;
     saveCycleCount(cycles);
-    notify('Back to work', 'Nice work — the next 20 minutes just started.');
-    showToast('Resuming — next break in 20 minutes ✨', 3500);
+    notify('Back to work', `Nice work — the next ${plural(workMinutes(), 'minute')} just started.`);
+    showToast(`Resuming — next break in ${plural(workMinutes(), 'minute')} ✨`, 3500);
     phase = 'work';
     remaining = WORK_SECONDS;
     setDeadline(WORK_SECONDS);
@@ -234,7 +292,7 @@ function start() {
   setDeadline(WORK_SECONDS);
   els.startBtn.disabled = true;
   els.pauseBtn.disabled = false;
-  els.hint.textContent = "Running — we'll ping you every 20 minutes.";
+  els.hint.textContent = `Running — we'll ping you every ${plural(workMinutes(), 'minute')}.`;
   startTick();
   render();
 }
@@ -249,6 +307,9 @@ function togglePause() {
 
 /* ---- init ---- */
 
+loadTiming();
+remaining = WORK_SECONDS;
+els.hint.textContent = idleHint();
 cycles = loadCycleCount();
 
 if (isStoppedForToday()) {
@@ -264,6 +325,27 @@ els.pauseBtn.addEventListener('click', togglePause);
 els.stopDayBtn.addEventListener('click', () => {
   if (confirm('Stop the timer for the rest of today?')) {
     stopForToday();
+  }
+});
+
+els.workInput.addEventListener('change', applyTiming);
+els.breakInput.addEventListener('change', applyTiming);
+els.resetTiming.addEventListener('click', () => {
+  els.workInput.value = DEFAULT_WORK_MIN;
+  els.breakInput.value = DEFAULT_BREAK_SEC;
+  applyTiming();
+});
+
+// Keyboard: Space starts, then pauses/resumes. Ignored while typing in a field.
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || e.repeat) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'button') return;
+  e.preventDefault();
+  if (phase === 'idle') {
+    if (!els.startBtn.disabled) start();
+  } else {
+    togglePause();
   }
 });
 

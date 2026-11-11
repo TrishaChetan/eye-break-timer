@@ -52,6 +52,19 @@
 
     <button id="stopDayBtn" class="link-btn">Stop for today</button>
 
+    <details class="timing">
+      <summary>Timing</summary>
+      <div class="timing-fields">
+        <label>Work for
+          <input id="workMinutes" type="number" min="1" max="90" step="1" inputmode="numeric"> min
+        </label>
+        <label>Break for
+          <input id="breakSeconds" type="number" min="10" max="300" step="5" inputmode="numeric"> sec
+        </label>
+      </div>
+      <button id="resetTiming" class="link-btn" type="button">Reset to 20-20-20</button>
+    </details>
+
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   </main>

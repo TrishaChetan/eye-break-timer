@@ -284,3 +284,33 @@ body{
   .ring-wrap{ width:210px; height:210px; }
   .time-display{ font-size:44px; }
 }
+
+.timing{
+  margin:14px auto 0;
+  max-width:300px;
+  font-size:13px;
+  color:var(--pink-900);
+}
+.timing summary{
+  cursor:pointer;
+  opacity:.7;
+  list-style:none;
+}
+.timing summary::-webkit-details-marker{ display:none; }
+.timing summary::before{ content:'⚙ '; }
+.timing-fields{
+  display:flex;
+  gap:14px;
+  justify-content:center;
+  margin:10px 0 6px;
+}
+.timing input{
+  width:58px;
+  padding:4px 6px;
+  border:1px solid var(--pink-400);
+  border-radius:8px;
+  font:inherit;
+  text-align:center;
+  color:inherit;
+  background:#fff;
+}
