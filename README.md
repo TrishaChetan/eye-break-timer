@@ -14,6 +14,7 @@ Runs fully in the browser — no install, no account, no data leaves your machin
 - ⏸️ Pause/Resume if you get interrupted
 - 🛑 "Stop for today" button — permanently stops until the next calendar day
 - 📊 Tracks how many breaks you've taken today
+- 📅 7-day history — a mini bar chart of breaks per day, weekly total and a 🔥 streak of days with at least one break
 - ⚙️ Adjustable timing (work 1–90 min, break 10–300 s), remembered between visits — defaults to 20-20-20
 - ⌨️ Space starts the timer and pauses/resumes it
 - 🏷️ Live countdown in the browser tab title, so you can see it from any tab

@@ -24,6 +24,8 @@ const els = {
   workInput: document.getElementById('workMinutes'),
   breakInput: document.getElementById('breakSeconds'),
   resetTiming: document.getElementById('resetTiming'),
+  weekBars: document.getElementById('weekBars'),
+  streak: document.getElementById('streak'),
 };
 
 const CIRCUMFERENCE = 2 * Math.PI * 108;
@@ -32,6 +34,7 @@ const STORAGE_KEYS = {
   stoppedDate: 'eyebreak_stopped_date',
   cycleCount: 'eyebreak_cycle_count',
   cycleDate: 'eyebreak_cycle_date',
+  history: 'eyebreak_history',   // {"2026-11-12": 9, ...} — last 60 days
   workMin: 'eyebreak_work_minutes',
   breakSec: 'eyebreak_break_seconds',
 };
@@ -108,6 +111,76 @@ function loadCycleCount() {
 function saveCycleCount(n) {
   localStorage.setItem(STORAGE_KEYS.cycleDate, todayStr());
   localStorage.setItem(STORAGE_KEYS.cycleCount, String(n));
+  recordHistory(n);
+}
+
+/* ---- 7-day history & streak ---- */
+
+function dayKey(d = new Date()) {
+  // local calendar date, not UTC
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function loadHistory() {
+  try {
+    const h = JSON.parse(safeGet(STORAGE_KEYS.history) || '{}');
+    return h && typeof h === 'object' ? h : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function recordHistory(count) {
+  const h = loadHistory();
+  h[dayKey()] = count;
+  const keep = Object.keys(h).sort().slice(-60);  // don't grow forever
+  const trimmed = {};
+  keep.forEach((k) => { trimmed[k] = h[k]; });
+  safeSet(STORAGE_KEYS.history, JSON.stringify(trimmed));
+  renderHistory();
+}
+
+function lastDays(n) {
+  const days = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - i);
+    days.push(d);
+  }
+  return days;
+}
+
+// consecutive days (ending today, or yesterday if none yet today) with at least one break
+function streakDays(h) {
+  let streak = 0;
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  if (!h[dayKey(d)]) d.setDate(d.getDate() - 1);
+  while (h[dayKey(d)] > 0) {
+    streak += 1;
+    d.setDate(d.getDate() - 1);
+  }
+  return streak;
+}
+
+function renderHistory() {
+  if (!els.weekBars) return;
+  const h = loadHistory();
+  const days = lastDays(7);
+  const counts = days.map((d) => h[dayKey(d)] || 0);
+  const max = Math.max(3, ...counts);
+  els.weekBars.innerHTML = days.map((d, i) => {
+    const pct = Math.round((counts[i] / max) * 100);
+    const label = d.toLocaleDateString(undefined, { weekday: 'narrow' });
+    const full = d.toLocaleDateString(undefined, { weekday: 'long' });
+    const today = i === days.length - 1 ? ' is-today' : '';
+    return `<div class="day${today}" title="${full}: ${plural(counts[i], 'break')}">
+      <div class="bar"><span style="height:${pct}%"></span></div><small>${label}</small></div>`;
+  }).join('');
+  const total = counts.reduce((a, b) => a + b, 0);
+  const s = streakDays(h);
+  els.streak.textContent = `${plural(total, 'break')} this week` + (s > 1 ? ` · 🔥 ${s}-day streak` : '');
 }
 
 function isStoppedForToday() {
@@ -308,6 +381,7 @@ function togglePause() {
 /* ---- init ---- */
 
 loadTiming();
+renderHistory();
 remaining = WORK_SECONDS;
 els.hint.textContent = idleHint();
 cycles = loadCycleCount();
