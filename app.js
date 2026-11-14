@@ -25,6 +25,8 @@ const els = {
   breakInput: document.getElementById('breakSeconds'),
   resetTiming: document.getElementById('resetTiming'),
   weekBars: document.getElementById('weekBars'),
+  breakTip: document.getElementById('breakTip'),
+  soundToggle: document.getElementById('soundToggle'),
   streak: document.getElementById('streak'),
 };
 
@@ -34,6 +36,8 @@ const STORAGE_KEYS = {
   stoppedDate: 'eyebreak_stopped_date',
   cycleCount: 'eyebreak_cycle_count',
   cycleDate: 'eyebreak_cycle_date',
+  sound: 'eyebreak_sound',       // "on" | "off"
+  tipIndex: 'eyebreak_tip_index',
   history: 'eyebreak_history',   // {"2026-11-12": 9, ...} — last 60 days
   workMin: 'eyebreak_work_minutes',
   breakSec: 'eyebreak_break_seconds',
@@ -188,6 +192,7 @@ function isStoppedForToday() {
 }
 
 function stopForToday() {
+  showTip('');
   localStorage.setItem(STORAGE_KEYS.stoppedDate, todayStr());
   resetToIdle();
   els.startBtn.disabled = true;
@@ -265,7 +270,19 @@ function getCtx() {
   return audioCtx;
 }
 
+function soundOn() {
+  return safeGet(STORAGE_KEYS.sound) !== 'off';
+}
+
+function renderSoundToggle() {
+  if (!els.soundToggle) return;
+  const on = soundOn();
+  els.soundToggle.textContent = on ? '🔔 Sound on' : '🔕 Sound off';
+  els.soundToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
 function beep({ freq = 880, duration = 0.18, type = 'sine', gain = 0.22, delay = 0 }) {
+  if (!soundOn()) return;  // quiet mode: notifications and visuals still work
   const ctx = getCtx();
   const osc = ctx.createOscillator();
   const g = ctx.createGain();
@@ -294,6 +311,32 @@ function playChime() {
   [0, 0.18].forEach((d, i) => {
     beep({ freq: i === 0 ? 660 : 880, duration: 0.3, type: 'sine', gain: 0.18, delay: d });
   });
+}
+
+/* ---- break coach: a different simple eye exercise each break ---- */
+const BREAK_TIPS = [
+  'Look at something at least 20 feet (6 m) away — a window is perfect.',
+  'Blink slowly 10 times to re-wet your eyes.',
+  'Close your eyes and relax your shoulders. Breathe in for 4, out for 4.',
+  'Trace a big sideways figure 8 with your eyes, slowly.',
+  'Look far away, then at your fingertip, then far again — repeat 5 times.',
+  'Find the farthest green thing you can see and focus on it.',
+  'Rub your palms warm and rest them gently over closed eyes.',
+  'Look up, down, left, right — hold each for 2 seconds.',
+  'Unclench your jaw and drop your shoulders while you gaze into the distance.',
+  'Close your eyes tightly for 3 seconds, then open wide. Repeat 3 times.',
+];
+
+function nextTip() {
+  const i = (Number(safeGet(STORAGE_KEYS.tipIndex)) || 0) % BREAK_TIPS.length;
+  safeSet(STORAGE_KEYS.tipIndex, String(i + 1));
+  return BREAK_TIPS[i];
+}
+
+function showTip(text) {
+  if (!els.breakTip) return;
+  els.breakTip.textContent = text || '';
+  els.breakTip.hidden = !text;
 }
 
 /* ---- timer control ---- */
@@ -328,8 +371,10 @@ function handlePhaseEnd() {
     phase = 'break';
     remaining = BREAK_SECONDS;
     setDeadline(BREAK_SECONDS);
+    showTip(nextTip());
     render();
   } else if (phase === 'break') {
+    showTip('');
     playChime();
     cycles += 1;
     saveCycleCount(cycles);
@@ -343,6 +388,7 @@ function handlePhaseEnd() {
 }
 
 function resetToIdle() {
+  showTip('');
   clearInterval(ticking);
   phase = 'idle';
   paused = false;
@@ -382,6 +428,7 @@ function togglePause() {
 
 loadTiming();
 renderHistory();
+renderSoundToggle();
 remaining = WORK_SECONDS;
 els.hint.textContent = idleHint();
 cycles = loadCycleCount();
@@ -400,6 +447,12 @@ els.stopDayBtn.addEventListener('click', () => {
   if (confirm('Stop the timer for the rest of today?')) {
     stopForToday();
   }
+});
+
+els.soundToggle.addEventListener('click', () => {
+  safeSet(STORAGE_KEYS.sound, soundOn() ? 'off' : 'on');
+  renderSoundToggle();
+  if (soundOn()) playChime();  // a little preview so you know it works
 });
 
 els.workInput.addEventListener('change', applyTiming);

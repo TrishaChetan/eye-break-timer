@@ -366,3 +366,17 @@ body{
   opacity:.75;
   text-align:center;
 }
+
+.break-tip{
+  margin:12px auto 0;
+  max-width:300px;
+  padding:10px 14px;
+  border-radius:14px;
+  background:var(--pink-100);
+  color:var(--pink-900);
+  font-size:14px;
+  line-height:1.4;
+  text-align:center;
+  animation:tip-in .4s ease;
+}
+@keyframes tip-in{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:none; } }
