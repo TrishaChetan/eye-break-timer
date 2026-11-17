@@ -28,6 +28,7 @@ const els = {
   breakTip: document.getElementById('breakTip'),
   soundToggle: document.getElementById('soundToggle'),
   streak: document.getElementById('streak'),
+  snoozeBtn: document.getElementById('snoozeBtn'),
 };
 
 const CIRCUMFERENCE = 2 * Math.PI * 108;
@@ -95,6 +96,12 @@ let remaining = WORK_SECONDS;
 let ticking = null;
 let paused = false;
 let deadline = 0; // wall-clock ms when the current phase ends
+
+// Snooze: push a break back a few minutes (e.g. you're presenting), but only
+// a couple of times in a row so it can't quietly replace every break.
+const SNOOZE_SECONDS = 5 * 60;
+const MAX_SNOOZES_IN_ROW = 2;
+let snoozesInRow = 0;
 
 const BASE_TITLE = document.title;
 
@@ -233,6 +240,29 @@ function render() {
     updateRing(1, 1);
   }
   updateTitle();
+  renderSnooze();
+}
+
+function renderSnooze() {
+  if (!els.snoozeBtn) return;
+  const left = MAX_SNOOZES_IN_ROW - snoozesInRow;
+  els.snoozeBtn.hidden = phase !== 'break' || paused || left <= 0;
+  els.snoozeBtn.textContent = `⏰ In a meeting? Snooze 5 min (${left} left)`;
+}
+
+function snooze() {
+  if (phase !== 'break' || snoozesInRow >= MAX_SNOOZES_IN_ROW) return;
+  snoozesInRow += 1;
+  showTip('');
+  phase = 'work';
+  paused = false;
+  remaining = SNOOZE_SECONDS;
+  setDeadline(SNOOZE_SECONDS);
+  els.pauseBtn.textContent = 'Pause';
+  showToast(snoozesInRow >= MAX_SNOOZES_IN_ROW
+    ? 'Snoozed — the next break can\'t be snoozed, your eyes need it 👀'
+    : 'Snoozed for 5 minutes', 3500);
+  render();
 }
 
 // Show the countdown in the browser tab so you can see it without switching tabs
@@ -376,6 +406,7 @@ function handlePhaseEnd() {
   } else if (phase === 'break') {
     showTip('');
     playChime();
+    snoozesInRow = 0;  // a real break resets the snooze allowance
     cycles += 1;
     saveCycleCount(cycles);
     notify('Back to work', `Nice work — the next ${plural(workMinutes(), 'minute')} just started.`);
@@ -392,6 +423,7 @@ function resetToIdle() {
   clearInterval(ticking);
   phase = 'idle';
   paused = false;
+  snoozesInRow = 0;
   remaining = WORK_SECONDS;
   els.startBtn.textContent = 'Start';
   els.startBtn.disabled = false;
@@ -443,6 +475,7 @@ render();
 
 els.startBtn.addEventListener('click', start);
 els.pauseBtn.addEventListener('click', togglePause);
+els.snoozeBtn.addEventListener('click', snooze);
 els.stopDayBtn.addEventListener('click', () => {
   if (confirm('Stop the timer for the rest of today?')) {
     stopForToday();

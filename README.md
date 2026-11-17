@@ -19,6 +19,7 @@ Runs fully in the browser — no install, no account, no data leaves your machin
 - 📅 7-day history — a mini bar chart of breaks per day, weekly total and a 🔥 streak of days with at least one break
 - ⚙️ Adjustable timing (work 1–90 min, break 10–300 s), remembered between visits — defaults to 20-20-20
 - ⌨️ Space starts the timer and pauses/resumes it
+- ⏰ Snooze a break by 5 minutes when you're in a meeting (twice in a row at most — then the break happens)
 - 🏷️ Live countdown in the browser tab title, so you can see it from any tab
 - 🎯 Stays accurate in background tabs (uses a wall-clock deadline, not tick counting)
 - 💻 Installable as a real desktop app (see below) or just used as a webpage
