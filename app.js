@@ -29,6 +29,10 @@ const els = {
   soundToggle: document.getElementById('soundToggle'),
   streak: document.getElementById('streak'),
   snoozeBtn: document.getElementById('snoozeBtn'),
+  exercise: document.getElementById('exercise'),
+  exerciseLabel: document.getElementById('exerciseLabel'),
+  exerciseToggle: document.getElementById('exerciseToggle'),
+  exercisePreview: document.getElementById('exercisePreview'),
 };
 
 const CIRCUMFERENCE = 2 * Math.PI * 108;
@@ -42,6 +46,8 @@ const STORAGE_KEYS = {
   history: 'eyebreak_history',   // {"2026-11-12": 9, ...} — last 60 days
   workMin: 'eyebreak_work_minutes',
   breakSec: 'eyebreak_break_seconds',
+  exercise: 'eyebreak_exercise',       // "on" | "off"
+  exerciseIndex: 'eyebreak_exercise_index',
 };
 
 function clamp(v, [lo, hi], fallback) {
@@ -357,6 +363,46 @@ const BREAK_TIPS = [
   'Close your eyes tightly for 3 seconds, then open wide. Repeat 3 times.',
 ];
 
+/* ---- guided eye exercise: a dot to follow during the break ---- */
+const EXERCISES = [
+  { kind: 'circle', label: 'Follow the dot around the circle — move only your eyes.' },
+  { kind: 'eight', label: 'Trace the figure-8 with your eyes, keep your head still.' },
+  { kind: 'sides', label: 'Track the dot left and right, slowly and smoothly.' },
+  { kind: 'focus', label: 'Small = far away, big = close. Shift your focus with it.' },
+];
+const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let previewTimer = null;
+
+function exerciseOn() { return safeGet(STORAGE_KEYS.exercise) !== 'off'; }
+
+function renderExerciseToggle() {
+  if (!els.exerciseToggle) return;
+  const on = exerciseOn();
+  els.exerciseToggle.textContent = on ? '👁 Guided exercise on' : '👁 Guided exercise off';
+  els.exerciseToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
+function showExercise(ex) {
+  if (!els.exercise) return;
+  clearTimeout(previewTimer);
+  if (!ex) {
+    els.exercise.hidden = true;
+    delete els.exercise.dataset.kind;
+    return;
+  }
+  els.exercise.dataset.kind = ex.kind;
+  els.exerciseLabel.textContent = reducedMotion
+    ? 'Look at something far away, then back at the dot. Repeat slowly.'
+    : ex.label;
+  els.exercise.hidden = false;
+}
+
+function nextExercise() {
+  const i = (Number(safeGet(STORAGE_KEYS.exerciseIndex)) || 0) % EXERCISES.length;
+  safeSet(STORAGE_KEYS.exerciseIndex, String(i + 1));
+  return EXERCISES[i];
+}
+
 function nextTip() {
   const i = (Number(safeGet(STORAGE_KEYS.tipIndex)) || 0) % BREAK_TIPS.length;
   safeSet(STORAGE_KEYS.tipIndex, String(i + 1));
@@ -402,9 +448,11 @@ function handlePhaseEnd() {
     remaining = BREAK_SECONDS;
     setDeadline(BREAK_SECONDS);
     showTip(nextTip());
+    if (exerciseOn()) showExercise(nextExercise());
     render();
   } else if (phase === 'break') {
     showTip('');
+    showExercise(null);
     playChime();
     snoozesInRow = 0;  // a real break resets the snooze allowance
     cycles += 1;
@@ -420,6 +468,7 @@ function handlePhaseEnd() {
 
 function resetToIdle() {
   showTip('');
+  showExercise(null);
   clearInterval(ticking);
   phase = 'idle';
   paused = false;
@@ -461,6 +510,7 @@ function togglePause() {
 loadTiming();
 renderHistory();
 renderSoundToggle();
+renderExerciseToggle();
 remaining = WORK_SECONDS;
 els.hint.textContent = idleHint();
 cycles = loadCycleCount();
@@ -488,6 +538,21 @@ els.soundToggle.addEventListener('click', () => {
   if (soundOn()) playChime();  // a little preview so you know it works
 });
 
+if (els.exerciseToggle) {
+  els.exerciseToggle.addEventListener('click', () => {
+    safeSet(STORAGE_KEYS.exercise, exerciseOn() ? 'off' : 'on');
+    renderExerciseToggle();
+    if (!exerciseOn() && phase !== 'break') showExercise(null);
+  });
+}
+if (els.exercisePreview) {
+  els.exercisePreview.addEventListener('click', () => {
+    if (phase === 'break') return;
+    const ex = EXERCISES[Math.floor(Math.random() * EXERCISES.length)];
+    showExercise(ex);
+    previewTimer = setTimeout(() => { if (phase !== 'break') showExercise(null); }, 8000);
+  });
+}
 els.workInput.addEventListener('change', applyTiming);
 els.breakInput.addEventListener('change', applyTiming);
 els.resetTiming.addEventListener('click', () => {

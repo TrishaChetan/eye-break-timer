@@ -15,6 +15,7 @@ Runs fully in the browser — no install, no account, no data leaves your machin
 - 🛑 "Stop for today" button — permanently stops until the next calendar day
 - 📊 Tracks how many breaks you've taken today
 - 🧘 Break coach — each break shows a different simple eye exercise (blinking, figure-8s, near/far focus, palming…)
+- 👁 Guided exercise — during each break an animated dot moves in a circle, a figure-8, side to side, or grows and shrinks for near/far focus, rotating each break. You can turn it off or preview it under Timing, and it holds still if your system asks for reduced motion
 - 🔕 Sound on/off switch under Timing, remembered between visits — notifications and visuals keep working when muted
 - 📅 7-day history — a mini bar chart of breaks per day, weekly total and a 🔥 streak of days with at least one break
 - ⚙️ Adjustable timing (work 1–90 min, break 10–300 s), remembered between visits — defaults to 20-20-20

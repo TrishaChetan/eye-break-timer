@@ -43,6 +43,11 @@
       </div>
     </div>
 
+    <div id="exercise" class="exercise" aria-hidden="true" hidden>
+      <div class="exercise-track"><span class="exercise-dot"></span></div>
+      <div id="exerciseLabel" class="exercise-label"></div>
+    </div>
+
     <p id="breakTip" class="break-tip" role="status" aria-live="polite" hidden></p>
 
     <div class="week" aria-label="Breaks in the last 7 days">
@@ -73,6 +78,8 @@
       </div>
       <button id="resetTiming" class="link-btn" type="button">Reset to 20-20-20</button>
       <button id="soundToggle" class="link-btn" type="button" aria-pressed="true">🔔 Sound on</button>
+      <button id="exerciseToggle" class="link-btn" type="button" aria-pressed="true">👁 Guided exercise on</button>
+      <button id="exercisePreview" class="link-btn" type="button">Preview an exercise</button>
     </details>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>

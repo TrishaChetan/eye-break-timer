@@ -380,3 +380,36 @@ body{
   animation:tip-in .4s ease;
 }
 @keyframes tip-in{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:none; } }
+
+/* ---- guided eye exercise (shown during breaks) ---- */
+.exercise{ margin:14px auto 0; width:220px; text-align:center; }
+.exercise-track{
+  position:relative; height:110px; border-radius:16px;
+  background:var(--break-200);
+  overflow:hidden;
+}
+.exercise-dot{
+  position:absolute; left:50%; top:50%;
+  width:18px; height:18px; margin:-9px 0 0 -9px; border-radius:50%;
+  background:var(--break-500);
+  box-shadow:0 0 0 6px rgba(255,138,61,.25);
+}
+.exercise-label{ margin-top:6px; font-size:13px; color:var(--pink-900); }
+.exercise[data-kind="circle"] .exercise-dot{ animation:ex-circle 4s linear infinite; }
+.exercise[data-kind="eight"] .exercise-dot{ animation:ex-eight 5s ease-in-out infinite; }
+.exercise[data-kind="sides"] .exercise-dot{ animation:ex-sides 3s ease-in-out infinite alternate; }
+.exercise[data-kind="focus"] .exercise-dot{ animation:ex-focus 4s ease-in-out infinite alternate; }
+@keyframes ex-circle{
+  0%{transform:translate(0,-38px)} 25%{transform:translate(38px,0)} 50%{transform:translate(0,38px)}
+  75%{transform:translate(-38px,0)} 100%{transform:translate(0,-38px)}
+}
+@keyframes ex-eight{
+  0%{transform:translate(0,0)} 12.5%{transform:translate(45px,-30px)} 25%{transform:translate(85px,0)}
+  37.5%{transform:translate(45px,30px)} 50%{transform:translate(0,0)} 62.5%{transform:translate(-45px,-30px)}
+  75%{transform:translate(-85px,0)} 87.5%{transform:translate(-45px,30px)} 100%{transform:translate(0,0)}
+}
+@keyframes ex-sides{ from{transform:translateX(-90px)} to{transform:translateX(90px)} }
+@keyframes ex-focus{ from{transform:scale(.4)} to{transform:scale(3.2)} }
+@media (prefers-reduced-motion: reduce){
+  .exercise .exercise-dot{ animation:none !important; }
+}
