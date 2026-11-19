@@ -6,7 +6,23 @@
 // and are remembered in localStorage.
 const DEFAULT_WORK_MIN = 20;
 const DEFAULT_BREAK_SEC = 20;
-const LIMITS = { workMin: [1, 90], breakSec: [10, 300] };
+const LIMITS = { workMin: [1, 90], breakSec: [10, 300], standEvery: [0, 12], standMin: [1, 10] };
+// Every few cycles the break becomes a longer "stand up and stretch" one:
+// eyes aren't the only thing that suffers from hours at a desk.
+const DEFAULT_STAND_EVERY = 3;  // cycles (0 = off) — every hour at 20-minute cycles
+const DEFAULT_STAND_MIN = 2;
+let STAND_EVERY = DEFAULT_STAND_EVERY;
+let STAND_SECONDS = DEFAULT_STAND_MIN * 60;
+let currentBreakSeconds = DEFAULT_BREAK_SEC; // length of the break in progress
+let standBreak = false;
+
+const STAND_TIPS = [
+  'Stand up, roll your shoulders back 10 times, then reach both arms overhead and hold for 10 seconds.',
+  'Walk to get a glass of water. Drink it standing up and look out of a window while you do.',
+  'Stand and do 10 slow calf raises, then gently tilt your head ear-to-shoulder on each side.',
+  'Clasp your hands behind your back, open your chest and breathe deeply 5 times. Then shake out your wrists.',
+  'Walk around for a minute. On the way back, stretch your hip flexors: one foot forward, sink gently, swap.',
+];
 
 let WORK_SECONDS = DEFAULT_WORK_MIN * 60;
 let BREAK_SECONDS = DEFAULT_BREAK_SEC;
@@ -33,6 +49,8 @@ const els = {
   exerciseLabel: document.getElementById('exerciseLabel'),
   exerciseToggle: document.getElementById('exerciseToggle'),
   exercisePreview: document.getElementById('exercisePreview'),
+  standEveryInput: document.getElementById('standEvery'),
+  standMinInput: document.getElementById('standMinutes'),
 };
 
 const CIRCUMFERENCE = 2 * Math.PI * 108;
@@ -46,6 +64,9 @@ const STORAGE_KEYS = {
   history: 'eyebreak_history',   // {"2026-11-12": 9, ...} — last 60 days
   workMin: 'eyebreak_work_minutes',
   breakSec: 'eyebreak_break_seconds',
+  standEvery: 'eyebreak_stand_every',
+  standMin: 'eyebreak_stand_minutes',
+  standTipIndex: 'eyebreak_stand_tip_index',
   exercise: 'eyebreak_exercise',       // "on" | "off"
   exerciseIndex: 'eyebreak_exercise_index',
 };
@@ -72,6 +93,21 @@ function loadTiming() {
   BREAK_SECONDS = clamp(safeGet(STORAGE_KEYS.breakSec) ?? DEFAULT_BREAK_SEC, LIMITS.breakSec, DEFAULT_BREAK_SEC);
   if (els.workInput) els.workInput.value = workMinutes();
   if (els.breakInput) els.breakInput.value = BREAK_SECONDS;
+  STAND_EVERY = clamp(safeGet(STORAGE_KEYS.standEvery) ?? DEFAULT_STAND_EVERY, LIMITS.standEvery, DEFAULT_STAND_EVERY);
+  STAND_SECONDS = clamp(safeGet(STORAGE_KEYS.standMin) ?? DEFAULT_STAND_MIN, LIMITS.standMin, DEFAULT_STAND_MIN) * 60;
+  if (els.standEveryInput) els.standEveryInput.value = STAND_EVERY;
+  if (els.standMinInput) els.standMinInput.value = STAND_SECONDS / 60;
+}
+
+// Is the break about to start a stand-up one? (cycles = breaks finished today)
+function isStandBreakNext() {
+  return STAND_EVERY > 0 && (cycles + 1) % STAND_EVERY === 0;
+}
+
+function nextStandTip() {
+  const i = (Number(safeGet(STORAGE_KEYS.standTipIndex)) || 0) % STAND_TIPS.length;
+  safeSet(STORAGE_KEYS.standTipIndex, String(i + 1));
+  return STAND_TIPS[i];
 }
 
 function idleHint() {
@@ -88,6 +124,16 @@ function applyTiming() {
   safeSet(STORAGE_KEYS.breakSec, String(b));
   WORK_SECONDS = w * 60;
   BREAK_SECONDS = b;
+  if (els.standEveryInput && els.standMinInput) {
+    const se = clamp(els.standEveryInput.value, LIMITS.standEvery, STAND_EVERY);
+    const sm = clamp(els.standMinInput.value, LIMITS.standMin, STAND_SECONDS / 60);
+    els.standEveryInput.value = se;
+    els.standMinInput.value = sm;
+    safeSet(STORAGE_KEYS.standEvery, String(se));
+    safeSet(STORAGE_KEYS.standMin, String(sm));
+    STAND_EVERY = se;
+    STAND_SECONDS = sm * 60;
+  }
   if (phase === 'idle') {
     remaining = WORK_SECONDS;
     if (!isStoppedForToday()) els.hint.textContent = idleHint();
@@ -237,9 +283,9 @@ function render() {
     els.ring.classList.remove('break-mode', 'pulse');
     updateRing(remaining, WORK_SECONDS);
   } else if (phase === 'break') {
-    els.phaseLabel.textContent = 'look away!';
+    els.phaseLabel.textContent = standBreak ? 'stand & stretch!' : 'look away!';
     els.ring.classList.add('break-mode', 'pulse');
-    updateRing(remaining, BREAK_SECONDS);
+    updateRing(remaining, currentBreakSeconds);
   } else {
     els.phaseLabel.textContent = 'ready';
     els.ring.classList.remove('break-mode', 'pulse');
@@ -278,7 +324,7 @@ function updateTitle() {
   } else if (paused) {
     document.title = `⏸ ${formatTime(remaining)} · paused`;
   } else if (phase === 'break') {
-    document.title = `👀 ${formatTime(remaining)} · look away!`;
+    document.title = standBreak ? `🧍 ${formatTime(remaining)} · stand & stretch` : `👀 ${formatTime(remaining)} · look away!`;
   } else {
     document.title = `${formatTime(remaining)} · focus`;
   }
@@ -442,13 +488,21 @@ function startTick() {
 function handlePhaseEnd() {
   if (phase === 'work') {
     playAlarm();
-    notify('Look 20 feet away 👀', `Rest your eyes for ${plural(BREAK_SECONDS, 'second')} — resuming automatically.`);
-    showToast(`Time to look 20 feet away for ${plural(BREAK_SECONDS, 'second')} 🌸`, 5000);
+    standBreak = isStandBreakNext();
+    currentBreakSeconds = standBreak ? STAND_SECONDS : BREAK_SECONDS;
+    if (standBreak) {
+      const mins = plural(STAND_SECONDS / 60, 'minute');
+      notify('Stand up & stretch 🧍', `A ${mins} movement break — look far away too. Resuming automatically.`);
+      showToast(`Stand-up break: ${mins} to move and stretch 🧍`, 6000);
+    } else {
+      notify('Look 20 feet away 👀', `Rest your eyes for ${plural(BREAK_SECONDS, 'second')} — resuming automatically.`);
+      showToast(`Time to look 20 feet away for ${plural(BREAK_SECONDS, 'second')} 🌸`, 5000);
+    }
     phase = 'break';
-    remaining = BREAK_SECONDS;
-    setDeadline(BREAK_SECONDS);
-    showTip(nextTip());
-    if (exerciseOn()) showExercise(nextExercise());
+    remaining = currentBreakSeconds;
+    setDeadline(currentBreakSeconds);
+    showTip(standBreak ? nextStandTip() : nextTip());
+    if (exerciseOn() && !standBreak) showExercise(nextExercise());  // you're away from the screen for this one
     render();
   } else if (phase === 'break') {
     showTip('');
@@ -554,10 +608,14 @@ if (els.exercisePreview) {
   });
 }
 els.workInput.addEventListener('change', applyTiming);
+els.standEveryInput?.addEventListener('change', applyTiming);
+els.standMinInput?.addEventListener('change', applyTiming);
 els.breakInput.addEventListener('change', applyTiming);
 els.resetTiming.addEventListener('click', () => {
   els.workInput.value = DEFAULT_WORK_MIN;
   els.breakInput.value = DEFAULT_BREAK_SEC;
+  if (els.standEveryInput) els.standEveryInput.value = DEFAULT_STAND_EVERY;
+  if (els.standMinInput) els.standMinInput.value = DEFAULT_STAND_MIN;
   applyTiming();
 });
 

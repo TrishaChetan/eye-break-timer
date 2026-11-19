@@ -75,7 +75,14 @@
         <label>Break for
           <input id="breakSeconds" type="number" min="10" max="300" step="5" inputmode="numeric"> sec
         </label>
+        <label>Stand-up break every
+          <input id="standEvery" type="number" min="0" max="12" step="1" inputmode="numeric"> breaks
+        </label>
+        <label>lasting
+          <input id="standMinutes" type="number" min="1" max="10" step="1" inputmode="numeric"> min
+        </label>
       </div>
+      <p class="timing-note">Set "every" to 0 to turn stand-up breaks off.</p>
       <button id="resetTiming" class="link-btn" type="button">Reset to 20-20-20</button>
       <button id="soundToggle" class="link-btn" type="button" aria-pressed="true">🔔 Sound on</button>
       <button id="exerciseToggle" class="link-btn" type="button" aria-pressed="true">👁 Guided exercise on</button>
